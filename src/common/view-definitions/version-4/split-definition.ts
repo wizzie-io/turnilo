@@ -16,6 +16,7 @@
 
 import { Duration } from "chronoshift";
 import { Direction } from "plywood";
+import { Bucket, NumberBucket, TimeBucket } from "../../models/granularity/bucket";
 import { Sort } from "../../models/sort/sort";
 import { Split, SplitType } from "../../models/split/split";
 
@@ -64,18 +65,18 @@ const numberSplitConversion: SplitDefinitionConversion<NumberSplitDefinition> = 
     return new Split({
       type: SplitType.number,
       reference: dimension,
-      bucket: granularity,
+      bucket: NumberBucket.fromNumber(granularity),
       sort: sort && new Sort({ reference: sort.ref, direction: sort.direction }),
       limit
     });
   },
 
   fromSplitCombine({ bucket, sort, reference, limit }: Split): NumberSplitDefinition {
-    if (typeof bucket === "number") {
+    if (bucket instanceof NumberBucket) {
       return {
         type: SplitType.number,
         dimension: reference,
-        granularity: bucket,
+        granularity: bucket.size,
         sort: sort && { ref: sort.reference, direction: sort.direction },
         limit
       };
@@ -91,18 +92,18 @@ const timeSplitConversion: SplitDefinitionConversion<TimeSplitDefinition> = {
     return new Split({
       type: SplitType.time,
       reference: dimension,
-      bucket: Duration.fromJS(granularity),
+      bucket: TimeBucket.fromJS(granularity),
       sort: sort && new Sort({ reference: sort.ref, direction: sort.direction }),
       limit
     });
   },
 
   fromSplitCombine({ limit, sort, reference, bucket }: Split): TimeSplitDefinition {
-    if (bucket instanceof Duration) {
+    if (bucket instanceof TimeBucket) {
       return {
         type: SplitType.time,
         dimension: reference,
-        granularity: bucket.toJS(),
+        granularity: bucket.duration.toJS(),
         sort: sort && { ref: sort.reference, direction: sort.direction },
         limit
       };

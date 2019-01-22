@@ -16,8 +16,8 @@
 
 import * as React from "react";
 import { Dimension } from "../../../common/models/dimension/dimension";
-import { ContinuousDimensionKind, getGranularities, granularityToString, validateGranularity } from "../../../common/models/granularity/granularity";
-import { Bucket } from "../../../common/models/split/split";
+import { Bucket } from "../../../common/models/granularity/bucket";
+import { ContinuousDimensionKind, getGranularities, validateGranularity } from "../../../common/models/granularity/granularity";
 import { Unary } from "../../../common/utils/functional/functional";
 import { formatGranularity } from "../../../common/utils/time/time";
 import { STRINGS } from "../../config/constants";
@@ -33,8 +33,8 @@ export const GranularityPicker: React.SFC<GranularityPickerProps> = ({ dimension
   if (!dimension.isContinuous()) return null;
 
   const granularities = dimension.granularities || getGranularities(dimension.kind as ContinuousDimensionKind, dimension.bucketedBy);
-  const presets: Preset[] = granularities.map((g: Bucket) => {
-    const granularityStr = granularityToString(g);
+  const presets: Preset[] = granularities.toArray().map((g: Bucket) => {
+    const granularityStr = g.toString();
     return {
       name: formatGranularity(granularityStr),
       identity: granularityStr

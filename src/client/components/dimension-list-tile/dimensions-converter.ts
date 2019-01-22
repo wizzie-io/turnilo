@@ -55,13 +55,13 @@ export class DimensionsConverter implements DimensionOrGroupVisitor<DimensionOrG
 
   visitDimension(dimension: Dimension): DimensionOrGroupForView {
     const { hasSearchTextPredicate, isFilteredOrSplitPredicate, isSelectedDimensionPredicate } = this;
-    const { name, title, description, className } = dimension;
+    const { name, title, description, kind } = dimension;
 
     return {
       name,
       title,
       description,
-      classSuffix: className,
+      classSuffix: kind,
       isFilteredOrSplit: isFilteredOrSplitPredicate(dimension),
       hasSearchText: hasSearchTextPredicate(dimension),
       selected: isSelectedDimensionPredicate(dimension),

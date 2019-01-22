@@ -19,8 +19,8 @@ import { Duration } from "chronoshift";
 import { Record } from "immutable";
 import { Expression, NumberBucketExpression, TimeBucketExpression } from "plywood";
 import { isTruthy } from "../../utils/general/general";
-import nullableEquals from "../../utils/immutable-utils/nullable-equals";
 import { Dimension } from "../dimension/dimension";
+import { Bucket } from "../granularity/bucket";
 import { Sort, SORT_ON_DIMENSION_PLACEHOLDER } from "../sort/sort";
 
 export enum SplitType {
@@ -28,8 +28,6 @@ export enum SplitType {
   string = "string",
   time = "time"
 }
-
-export type Bucket = number | Duration;
 
 export interface SplitValue {
   type: SplitType;
@@ -48,17 +46,11 @@ const defaultSplit: SplitValue = {
   limit: null
 };
 
-export function bucketToAction(bucket: Bucket): Expression {
-  return bucket instanceof Duration
-    ? new TimeBucketExpression({ duration: bucket })
-    : new NumberBucketExpression({ size: bucket });
-}
-
 export function toExpression({ bucket, type }: Split, { expression }: Dimension, filter?: Expression, shift?: Duration): Expression {
   const shouldApplyShift = shift && filter && type === SplitType.time;
   const expWithShift = shouldApplyShift ? filter.then(expression).fallback(expression.timeShift(shift)) : expression;
   if (!bucket) return expWithShift;
-  return expWithShift.performAction(bucketToAction(bucket));
+  return expWithShift.performAction(bucket.toExpression());
 }
 
 export function kindToType(kind: string): SplitType {
@@ -128,15 +120,5 @@ export class Split extends Record<SplitValue>(defaultSplit) {
       return ` (${bucket.getDescription(true)})`;
     }
     return ` (by ${bucket})`;
-  }
-
-  public equals(other: any): boolean {
-    if (this.type !== SplitType.time) return super.equals(other);
-    return other instanceof Split &&
-      this.type === other.type &&
-      this.reference === other.reference &&
-      this.sort.equals(other.sort) &&
-      this.limit === other.limit &&
-      nullableEquals(this.bucket as Duration, other.bucket as Duration);
   }
 }

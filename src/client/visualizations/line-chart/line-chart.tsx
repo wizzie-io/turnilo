@@ -27,6 +27,7 @@ import { Dimension } from "../../../common/models/dimension/dimension";
 import { Essence } from "../../../common/models/essence/essence";
 import { DateRange, FixedTimeFilterClause, NumberFilterClause, NumberRange as FilterNumberRange } from "../../../common/models/filter-clause/filter-clause";
 import { Filter } from "../../../common/models/filter/filter";
+import { NumberBucket, TimeBucket } from "../../../common/models/granularity/bucket";
 import { getBestBucketUnitForRange } from "../../../common/models/granularity/granularity";
 import { Measure, MeasureDerivation } from "../../../common/models/measure/measure";
 import { SeriesFormat } from "../../../common/models/series/series";
@@ -209,14 +210,15 @@ export class LineChart extends BaseVisualization<LineChartState> {
     const continuousSplit = splits.splits.last();
     if (!continuousSplit.bucket) return dragRange; // temp solution for non-bucketed reaching here
 
-    if (TimeRange.isTimeRange(dragRange)) {
-      const duration = continuousSplit.bucket as Duration;
+    if (TimeRange.isTimeRange(dragRange) && continuousSplit.bucket instanceof TimeBucket) {
+      const duration = continuousSplit.bucket.duration;
       return TimeRange.fromJS({
         start: duration.floor(dragRange.start, timezone),
         end: duration.shift(duration.floor(dragRange.end, timezone), timezone, 1)
       });
-    } else {
-      const bucketSize = continuousSplit.bucket as number;
+    }
+    if (NumberRange.isNumberRange(dragRange) && continuousSplit.bucket instanceof NumberBucket) {
+      const bucketSize = continuousSplit.bucket.size;
       const startFloored = roundTo((dragRange as NumberRange).start, bucketSize);
       let endFloored = roundTo((dragRange as NumberRange).end, bucketSize);
 
@@ -229,6 +231,7 @@ export class LineChart extends BaseVisualization<LineChartState> {
         end: endFloored
       });
     }
+    throw new Error(`Expected same type of range and bucket. Got range ${dragRange} and bucket ${continuousSplit.bucket}`);
   }
 
   globalMouseMoveListener = (e: MouseEvent) => {
@@ -687,12 +690,12 @@ export class LineChart extends BaseVisualization<LineChartState> {
   private getLineChartTicks(range: PlywoodRange, timezone: Timezone): Array<Date | number> {
     if (range instanceof TimeRange) {
       const { start, end } = range;
-      const tickDuration = getBestBucketUnitForRange(range, true) as Duration;
-      return tickDuration.materialize(start, end as Date, timezone);
+      const tickDuration = getBestBucketUnitForRange<TimeBucket>(range, true).duration;
+      return tickDuration.materialize(start, end, timezone);
     }
     if (range instanceof NumberRange) {
       const { start, end } = range;
-      const unit = getBestBucketUnitForRange(range, true) as number;
+      const unit = getBestBucketUnitForRange<NumberBucket>(range, true).size;
       let values: number[] = [];
       let iter = Math.round((start as number) * unit) / unit;
 

@@ -17,125 +17,126 @@
 
 import { expect } from "chai";
 import { Duration } from "chronoshift";
+import { List } from "immutable";
 import { NumberRange, TimeRange } from "plywood";
-import { getBestBucketUnitForRange, getDefaultGranularityForKind, getGranularities, granularityEquals, granularityFromJS, granularityToString } from "./granularity";
+import { fromJS, NumberBucket, TimeBucket } from "./bucket";
+import { getBestBucketUnitForRange, getDefaultGranularityForKind, getGranularities } from "./granularity";
 
 describe("Granularity", () => {
   it("fromJSes appropriately", () => {
 
-    const timeBucketAction1 = granularityFromJS("P1W");
+    const timeBucketAction1 = fromJS("P1W");
 
-    expect(timeBucketAction1 instanceof Duration).to.be.true;
-    expect(timeBucketAction1).to.deep.equal(Duration.fromJS("P1W"));
+    expect(timeBucketAction1 instanceof TimeBucket).to.be.true;
+    expect((timeBucketAction1 as TimeBucket).duration).to.deep.equal(Duration.fromJS("P1W"));
 
-    const timeBucketAction2 = granularityFromJS("PT1H");
-    expect(timeBucketAction2 instanceof Duration).to.be.true;
-    expect(timeBucketAction2).to.deep.equal(Duration.fromJS("PT1H"));
+    const timeBucketAction2 = fromJS("PT1H");
+    expect(timeBucketAction2 instanceof TimeBucket).to.be.true;
+    expect((timeBucketAction2 as TimeBucket).duration).to.deep.equal(Duration.fromJS("PT1H"));
 
-    const numberBucketAction1 = granularityFromJS(5);
+    const numberBucketAction1 = fromJS(5);
 
-    expect(typeof numberBucketAction1 === "number").to.be.true;
-    expect(numberBucketAction1).to.equal(5);
+    expect(numberBucketAction1 instanceof NumberBucket).to.be.true;
+    expect((numberBucketAction1 as NumberBucket).size).to.equal(5);
   });
 
   it("to strings appropriately", () => {
-    const timeBucketAction1 = granularityFromJS("P1W");
+    const timeBucketAction1 = fromJS("P1W");
 
-    expect(granularityToString(timeBucketAction1)).to.equal("P1W");
+    expect(timeBucketAction1.toString()).to.equal("P1W");
 
-    const numberBucketAction1 = granularityFromJS(5);
-    const numberBucketAction3 = granularityFromJS(300000);
-    const numberBucketAction4 = granularityFromJS(2);
+    const numberBucketAction1 = fromJS(5);
+    const numberBucketAction3 = fromJS(300000);
+    const numberBucketAction4 = fromJS(2);
 
-    expect(granularityToString(numberBucketAction1)).to.equal("5");
-    expect(granularityToString(numberBucketAction3)).to.equal("300000");
-    expect(granularityToString(numberBucketAction4)).to.equal("2");
-
+    expect(numberBucketAction1.toString()).to.equal("5");
+    expect(numberBucketAction3.toString()).to.equal("300000");
+    expect(numberBucketAction4.toString()).to.equal("2");
   });
 
   it("equals appropriately", () => {
-    const timeBucketAction1 = granularityFromJS("P1W");
+    const timeBucketAction1 = fromJS("P1W");
 
-    const timeBucketAction2 = granularityFromJS("P1W");
+    const timeBucketAction2 = fromJS("P1W");
 
-    const timeBucketAction3 = granularityFromJS("P1D");
+    const timeBucketAction3 = fromJS("P1D");
 
-    expect(granularityEquals(timeBucketAction1, timeBucketAction2)).to.be.true;
-    expect(granularityEquals(timeBucketAction2, timeBucketAction3)).to.be.false;
+    expect(timeBucketAction1.equals(timeBucketAction2)).to.be.true;
+    expect(timeBucketAction2.equals(timeBucketAction3)).to.be.false;
 
-    const numberBucketAction1 = granularityFromJS(5);
+    const numberBucketAction1 = fromJS(5);
 
-    const numberBucketAction2 = granularityFromJS(5);
+    const numberBucketAction2 = fromJS(5);
 
-    const numberBucketAction3 = granularityFromJS(3);
+    const numberBucketAction3 = fromJS(3);
 
-    expect(granularityEquals(numberBucketAction1, numberBucketAction2)).to.be.true;
-    expect(granularityEquals(numberBucketAction2, numberBucketAction3)).to.be.false;
+    expect(numberBucketAction1.equals(numberBucketAction2)).to.be.true;
+    expect(numberBucketAction2.equals(numberBucketAction3)).to.be.false;
   });
 
   it("getGranularities appropriately for time", () => {
     const defaults = getGranularities("time");
-    let expectedDefaults = ["PT1M", "PT5M", "PT1H", "P1D", "P1W"].map(granularityFromJS);
+    let expectedDefaults = ["PT1M", "PT5M", "PT1H", "P1D", "P1W"].map(TimeBucket.fromJS);
 
-    expect(defaults.every((g, i) => granularityEquals(g, expectedDefaults[i]), "time defaults are returned")).to.be.true;
+    expect(defaults.every((g, i) => g.equals(expectedDefaults[i]), "time defaults are returned")).to.be.true;
 
     const coarse = getGranularities("time", null, true);
-    const expectedCoarseDefaults = ["PT1M", "PT5M", "PT1H", "PT6H", "PT12H", "P1D", "P1W", "P1M"].map(granularityFromJS);
+    const expectedCoarseDefaults = ["PT1M", "PT5M", "PT1H", "PT6H", "PT12H", "P1D", "P1W", "P1M"].map(TimeBucket.fromJS);
 
-    expect(coarse.every((g, i) => granularityEquals(g, expectedCoarseDefaults[i]), "coarse time defaults are returned")).to.be.true;
+    expect(coarse.every((g, i) => g.equals(expectedCoarseDefaults[i]), "coarse time defaults are returned")).to.be.true;
 
-    const bucketedBy = getGranularities("time", granularityFromJS("PT12H"), false);
-    expectedDefaults = ["PT12H", "P1D", "P1W", "P1M", "P3M"].map(granularityFromJS);
+    const bucketedBy = getGranularities("time", TimeBucket.fromJS("PT12H"), false);
+    expectedDefaults = ["PT12H", "P1D", "P1W", "P1M", "P3M"].map(TimeBucket.fromJS);
 
-    expect(bucketedBy.every((g, i) => granularityEquals(g, expectedDefaults[i]), "bucketed by time defaults are returned")).to.be.true;
+    expect(bucketedBy.every((g, i) => g.equals(expectedDefaults[i]), "bucketed by time defaults are returned")).to.be.true;
   });
 
   it("getGranularities appropriately for number", () => {
     const defaults = getGranularities("number");
-    const expectedDefaults = [0.1, 1, 10, 100, 1000].map(granularityFromJS);
+    const expectedDefaults = [0.1, 1, 10, 100, 1000].map(NumberBucket.fromNumber);
 
-    expect(defaults.every((g, i) => granularityEquals(g, expectedDefaults[i]), "number defaults are returned")).to.be.true;
+    expect(defaults.every((g, i) => g.equals(expectedDefaults[i]), "number defaults are returned")).to.be.true;
 
-    const bucketedBy = getGranularities("number", granularityFromJS(100), false);
-    const expectedGrans = [100, 500, 1000, 5000, 10000].map(granularityFromJS);
+    const bucketedBy = getGranularities("number", NumberBucket.fromNumber(100), false);
+    const expectedGrans = [100, 500, 1000, 5000, 10000].map(NumberBucket.fromNumber);
 
-    expect(bucketedBy.every((g, i) => granularityEquals(g, expectedGrans[i]), "bucketed by returns larger granularities")).to.be.true;
+    expect(bucketedBy.every((g, i) => g.equals(expectedGrans[i]), "bucketed by returns larger granularities")).to.be.true;
 
   });
 
   it("getDefaultGranularityForKind appropriately for number", () => {
     const defaultNumber = getDefaultGranularityForKind("number");
-    let expected = granularityFromJS(10);
+    let expected = NumberBucket.fromNumber(10);
 
-    expect(granularityEquals(defaultNumber, expected)).to.equal(true);
+    expect(defaultNumber.equals(expected)).to.equal(true);
 
-    const bucketedBy = getDefaultGranularityForKind("number", granularityFromJS(50));
-    expected = granularityFromJS(50);
+    const bucketedBy = getDefaultGranularityForKind("number", NumberBucket.fromNumber(50));
+    expected = NumberBucket.fromNumber(50);
 
-    expect(granularityEquals(bucketedBy, expected), "default will bucket by provided bucketedBy amount").to.equal(true);
+    expect(bucketedBy.equals(expected), "default will bucket by provided bucketedBy amount").to.equal(true);
 
-    const customGrans = getDefaultGranularityForKind("number", null, [100, 500, 1000, 5000, 10000].map(granularityFromJS));
-    expected = granularityFromJS(1000);
+    const customGrans = getDefaultGranularityForKind("number", null, List([100, 500, 1000, 5000, 10000].map(NumberBucket.fromNumber)));
+    expected = NumberBucket.fromNumber(1000);
 
-    expect(granularityEquals(customGrans, expected), "default will bucket according to provided customs").to.equal(true);
+    expect(customGrans.equals(expected), "default will bucket according to provided customs").to.equal(true);
 
   });
 
   it("getDefaultGranularityForKind appropriately for time", () => {
     const defaultNumber = getDefaultGranularityForKind("time");
-    let expected = granularityFromJS("P1D");
+    let expected = TimeBucket.fromJS("P1D");
 
-    expect(granularityEquals(defaultNumber, expected)).to.equal(true);
+    expect(defaultNumber.equals(expected)).to.equal(true);
 
-    const bucketedBy = getDefaultGranularityForKind("time", granularityFromJS("P1W"));
-    expected = granularityFromJS("P1W");
+    const bucketedBy = getDefaultGranularityForKind("time", TimeBucket.fromJS("P1W"));
+    expected = TimeBucket.fromJS("P1W");
 
-    expect(granularityEquals(bucketedBy, expected), "default will bucket by provided bucketedBy amount").to.equal(true);
+    expect(bucketedBy.equals(expected), "default will bucket by provided bucketedBy amount").to.equal(true);
 
-    const customGrans = getDefaultGranularityForKind("time", null, ["PT1H", "PT8H", "PT12H", "P1D", "P1W"].map(granularityFromJS));
-    expected = granularityFromJS("PT12H");
+    const customGrans = getDefaultGranularityForKind("time", null, List(["PT1H", "PT8H", "PT12H", "P1D", "P1W"].map(TimeBucket.fromJS)));
+    expected = TimeBucket.fromJS("PT12H");
 
-    expect(granularityEquals(customGrans, expected), "default will bucket according to provided customs").to.equal(true);
+    expect(customGrans.equals(expected), "default will bucket according to provided customs").to.equal(true);
 
   });
 
@@ -186,12 +187,12 @@ describe("Granularity", () => {
 
     const dayLength = new TimeRange({ start: new Date("1995-02-24T00:00:00.000Z"), end: new Date("1995-02-25T00:00:00.000Z") });
     expect(getBestBucketUnitForRange(dayLength, false).toString()).to.equal(oneHour);
-    expect(getBestBucketUnitForRange(dayLength, false, granularityFromJS("PT6H")).toString()).to.equal(sixHours);
+    expect(getBestBucketUnitForRange(dayLength, false, TimeBucket.fromJS("PT6H")).toString()).to.equal(sixHours);
 
     const yearLength = new TimeRange({ start: new Date("1994-02-24T00:00:00.000Z"), end: new Date("1995-02-25T00:00:00.000Z") });
-    expect(getBestBucketUnitForRange(yearLength, false, granularityFromJS("PT6H")).toString()).to.equal(week);
+    expect(getBestBucketUnitForRange(yearLength, false, TimeBucket.fromJS("PT6H")).toString()).to.equal(week);
 
-    const customs = ["PT1H", "PT8H", "PT12H", "P1D", "P1W"].map(granularityFromJS);
+    const customs = List(["PT1H", "PT8H", "PT12H", "P1D", "P1W"].map(TimeBucket.fromJS));
     expect(getBestBucketUnitForRange(dayLength, false, null, customs).toString()).to.equal(oneHour);
 
     const fortyFiveMin = new TimeRange({ start: new Date("1995-02-24T00:00:00.000Z"), end: new Date("1995-02-24T00:45:00.000Z") });
@@ -204,13 +205,13 @@ describe("Granularity", () => {
     const thirtyOne = new NumberRange({ start: 0, end: 31 });
     const hundred = new NumberRange({ start: 0, end: 100 });
 
-    expect(getBestBucketUnitForRange(ten, false)).to.equal(1);
-    expect(getBestBucketUnitForRange(thirtyOne, false)).to.equal(1);
-    expect(getBestBucketUnitForRange(hundred, false)).to.equal(1);
-    expect(getBestBucketUnitForRange(hundred, false, granularityFromJS(50))).to.equal(50);
+    expect(getBestBucketUnitForRange(ten, false).equals(NumberBucket.fromNumber(1))).to.be.true;
+    expect(getBestBucketUnitForRange(thirtyOne, false).equals(NumberBucket.fromNumber(1))).to.be.true;
+    expect(getBestBucketUnitForRange(hundred, false).equals(NumberBucket.fromNumber(1))).to.be.true;
+    expect(getBestBucketUnitForRange(hundred, false, NumberBucket.fromNumber(50)).equals(NumberBucket.fromNumber(50))).to.be.true;
 
-    const customs = [-5, 0.25, 0.5, 0.78, 5].map(granularityFromJS);
-    expect(getBestBucketUnitForRange(ten, false, null, customs)).to.equal(5);
+    const customs = List([-5, 0.25, 0.5, 0.78, 5].map(NumberBucket.fromNumber));
+    expect(getBestBucketUnitForRange(ten, false, null, customs).equals(NumberBucket.fromNumber(5))).to.be.true;
 
   });
 

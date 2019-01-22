@@ -25,18 +25,11 @@ import { Dimension } from "../../../common/models/dimension/dimension";
 import { Essence } from "../../../common/models/essence/essence";
 import { isTimeFilter, NumberFilterClause, StringFilterAction, StringFilterClause } from "../../../common/models/filter-clause/filter-clause";
 import { Filter, FilterMode } from "../../../common/models/filter/filter";
-import {
-  ContinuousDimensionKind,
-  getBestGranularityForRange,
-  getDefaultGranularityForKind,
-  getGranularities,
-  granularityEquals,
-  granularityToString
-} from "../../../common/models/granularity/granularity";
+import { Bucket, TimeBucket } from "../../../common/models/granularity/bucket";
+import { ContinuousDimensionKind, getBestGranularityForRange, getDefaultGranularityForKind, getGranularities } from "../../../common/models/granularity/granularity";
 import { Measure } from "../../../common/models/measure/measure";
 import { DEFAULT_FORMAT } from "../../../common/models/series/series";
 import { SortOn } from "../../../common/models/sort-on/sort-on";
-import { Bucket, bucketToAction } from "../../../common/models/split/split";
 import { Timekeeper } from "../../../common/models/timekeeper/timekeeper";
 import { formatNumberRange, seriesFormatter } from "../../../common/utils/formatter/formatter";
 import { Unary } from "../../../common/utils/functional/functional";
@@ -164,7 +157,7 @@ export class DimensionTile extends React.Component<DimensionTileProps, Dimension
 
       this.setState({ selectedGranularity });
 
-      query = query.split($(dimension.name).performAction(bucketToAction(selectedGranularity)), dimension.name);
+      query = query.split($(dimension.name).performAction(selectedGranularity.toExpression()), dimension.name);
       sortExpression = $(dimension.name);
     } else {
       query = query.split(dimension.expression, dimension.name);
@@ -408,8 +401,8 @@ export class DimensionTile extends React.Component<DimensionTileProps, Dimension
     const { dimension } = this.props;
     const { selectedGranularity } = this.state;
 
-    if (selectedGranularity && dimension.kind === "time") {
-      return `${dimension.title} (${(selectedGranularity as Duration).getDescription()})`;
+    if (selectedGranularity instanceof TimeBucket) {
+      return `${dimension.title} (${selectedGranularity.duration.getDescription()})`;
     }
     return dimension.title;
   }
@@ -426,10 +419,10 @@ export class DimensionTile extends React.Component<DimensionTileProps, Dimension
     const { dimension } = this.props;
     const { selectedGranularity } = this.state;
     const granularities = dimension.granularities || getGranularities(dimension.kind as ContinuousDimensionKind, dimension.bucketedBy, true);
-    return granularities.map(g => {
-      const granularityStr = granularityToString(g);
+    return granularities.toArray().map(g => {
+      const granularityStr = g.toString();
       return {
-        selected: granularityEquals(selectedGranularity, g),
+        selected: selectedGranularity.equals(g),
         onSelect: this.onSelectGranularity.bind(this, g),
         displayValue: formatGranularity(granularityStr),
         keyString: granularityStr
@@ -547,7 +540,7 @@ export class DimensionTile extends React.Component<DimensionTileProps, Dimension
     if (segmentValue instanceof TimeRange) {
       return formatTimeBasedOnGranularity(
         segmentValue,
-        (selectedGranularity as Duration),
+        (selectedGranularity as TimeBucket).duration,
         timezone,
         getLocale());
     }

@@ -102,27 +102,27 @@ export function arraySum(inputArray: number[]) {
   return inputArray.reduce((pV: number, cV: number) => pV + cV, 0);
 }
 
-export function findFirstBiggerIndex<T>(array: T[], elementToFind: T, valueOf: (input: T) => number) {
+export function findFirstBiggerIndex<T>(array: List<T>, elementToFind: T, valueOf: (input: T) => number) {
   if (!elementToFind) return -1;
-  return List(array).findIndex(g => valueOf(g) > valueOf(elementToFind));
+  return array.findIndex(g => valueOf(g) > valueOf(elementToFind));
 }
 
-export function findBiggerClosestToIdeal<T>(array: T[], elementToFind: T, ideal: T, valueOf: (input: T) => number) {
-  var biggerOrEqualIndex = List(array).findIndex(g => valueOf(g) >= valueOf(elementToFind));
-  var biggerArrayOrEqual = array.slice(biggerOrEqualIndex);
-  return biggerArrayOrEqual.reduce((pV, cV, i, arr) => Math.abs(valueOf(pV) - valueOf(ideal)) < Math.abs(valueOf(cV) - valueOf(ideal)) ? pV : cV);
+export function findBiggerClosestToIdeal<T>(list: List<T>, elementToFind: T, ideal: T, valueOf: (input: T) => number): T {
+  const biggerOrEqualIndex = list.findIndex(g => valueOf(g) >= valueOf(elementToFind));
+  const biggerArrayOrEqual: List<T> = list.slice(biggerOrEqualIndex);
+  return biggerArrayOrEqual.reduce((pV, cV) => Math.abs(valueOf(pV) - valueOf(ideal)) < Math.abs(valueOf(cV) - valueOf(ideal)) ? pV : cV, list.first());
 }
 
-export function findExactIndex<T>(array: T[], elementToFind: T, valueOf: (input: T) => number) {
-  return List(array).findIndex(g => valueOf(g) === valueOf(elementToFind));
+export function findExactIndex<T>(list: List<T>, elementToFind: T, valueOf: (input: T) => number) {
+  return list.findIndex(g => valueOf(g) === valueOf(elementToFind));
 }
 
-export function findMaxValueIndex<T>(array: T[], valueOf: (input: T) => number) {
-  return array.reduce((currMax, cV, cIdx, arr) => valueOf(cV) > valueOf(arr[currMax]) ? cIdx : currMax, 0);
+export function findMaxValueIndex<T>(list: List<T>, valueOf: (input: T) => number) {
+  return list.reduce((currMax, cV, cIdx, l) => valueOf(cV) > valueOf(l.get(currMax)) ? cIdx : currMax, 0);
 }
 
-export function findMinValueIndex<T>(array: T[], valueOf: (input: T) => number) {
-  return array.reduce((currMax, cV, cIdx, arr) => valueOf(cV) < valueOf(arr[currMax]) ? cIdx : currMax, 0);
+export function findMinValueIndex<T>(list: List<T>, valueOf: (input: T) => number) {
+  return list.reduce((currMin, cV, cIdx, l) => valueOf(cV) < valueOf(l.get(currMin)) ? cIdx : currMin, 0);
 }
 
 function log10(n: number) {

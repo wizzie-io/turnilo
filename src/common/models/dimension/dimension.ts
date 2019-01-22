@@ -15,18 +15,12 @@
  * limitations under the License.
  */
 
-import { Class, Instance } from "immutable-class";
+import { List, Record } from "immutable";
 import { $, Expression } from "plywood";
-import { makeTitle, verifyUrlSafeName } from "../../utils/general/general";
-import { granularityEquals, granularityFromJS, GranularityJS, granularityToJS } from "../granularity/granularity";
-import { Bucket } from "../split/split";
+import { isTruthy, makeTitle, verifyUrlSafeName } from "../../utils/general/general";
+import { Bucket, fromJS as bucketFromJS } from "../granularity/bucket";
+import { GranularityJS } from "../granularity/granularity";
 import { DimensionOrGroupVisitor } from "./dimension-group";
-
-const geoName = /continent|country|city|region/i;
-
-function isGeo(name: string): boolean {
-  return geoName.test(name);
-}
 
 function typeToKind(type: string): string {
   if (!type) return type;
@@ -43,6 +37,22 @@ const bucketingStrategies: { [strategy in BucketingStrategy]: BucketingStrategy 
   defaultNoBucket: BucketingStrategy.defaultNoBucket
 };
 
+function assertGranularities(granularities: List<Bucket>, dimensionName: string) {
+  if (granularities) {
+    if (granularities.count() !== 5) {
+      throw new Error(`must have list of 5 granularities in dimension '${dimensionName}'`);
+    }
+    const sameType = granularities.every(g => g.kind() === granularities.first().kind());
+    if (!sameType) throw new Error("granularities must have the same type of actions");
+  }
+}
+
+function assertUrlFormat(url?: string) {
+  if (url && typeof url !== "string") {
+    throw new Error(`unsupported url: ${url}: only strings are supported`);
+  }
+}
+
 export interface DimensionValue {
   name: string;
   title?: string;
@@ -50,7 +60,7 @@ export interface DimensionValue {
   formula?: string;
   kind?: string;
   url?: string;
-  granularities?: Bucket[];
+  granularities?: List<Bucket>;
   bucketedBy?: Bucket;
   bucketingStrategy?: BucketingStrategy;
   sortStrategy?: string;
@@ -69,30 +79,49 @@ export interface DimensionJS {
   sortStrategy?: string;
 }
 
-var check: Class<DimensionValue, DimensionJS>;
+const defaultDimension: DimensionValue = {
+  name: null,
+  title: undefined,
+  description: undefined,
+  formula: null,
+  kind: null,
+  url: undefined,
+  granularities: undefined,
+  bucketedBy: undefined,
+  bucketingStrategy: undefined,
+  sortStrategy: undefined
+};
 
-export class Dimension implements Instance<DimensionValue, DimensionJS> {
-  static isDimension(candidate: any): candidate is Dimension {
-    return candidate instanceof Dimension;
-  }
+function initializeParameters(parameters: DimensionValue): DimensionValue {
+  const { name, url, title: initialTitle, formula: initialFormula, granularities } = parameters;
+  verifyUrlSafeName(name);
+  assertGranularities(granularities, name);
+  assertUrlFormat(url);
+
+  const title = initialTitle || makeTitle(name);
+  const formula = initialFormula || $(name).toString();
+  const kind = parameters.kind || typeToKind(Expression.parse(formula).type) || "string";
+
+  return { ...parameters, title, formula, kind };
+}
+
+export class Dimension extends Record<DimensionValue>(defaultDimension) {
 
   static fromJS(parameters: DimensionJS): Dimension {
-    const parameterExpression = (parameters as any).expression; // Back compat
-
     const value: DimensionValue = {
       name: parameters.name,
       title: parameters.title,
       description: parameters.description,
-      formula: parameters.formula || (typeof parameterExpression === "string" ? parameterExpression : null),
+      formula: parameters.formula,
       kind: parameters.kind || typeToKind((parameters as any).type),
       url: parameters.url
     };
 
     if (parameters.granularities) {
-      value.granularities = parameters.granularities.map(granularityFromJS);
+      value.granularities = List(parameters.granularities.map(bucketFromJS));
     }
     if (parameters.bucketedBy) {
-      value.bucketedBy = granularityFromJS(parameters.bucketedBy);
+      value.bucketedBy = bucketFromJS(parameters.bucketedBy);
     }
     if (parameters.bucketingStrategy) {
       value.bucketingStrategy = bucketingStrategies[parameters.bucketingStrategy];
@@ -104,121 +133,33 @@ export class Dimension implements Instance<DimensionValue, DimensionJS> {
     return new Dimension(value);
   }
 
-  public name: string;
-  public title: string;
-  public description?: string;
-  public formula: string;
-  public expression: Expression;
-  public kind: string;
-  public className: string;
-  public url: string;
-  public granularities: Bucket[];
-  public bucketedBy: Bucket;
-  public bucketingStrategy: BucketingStrategy;
-  public sortStrategy: string;
-  public type = "dimension";
-
-  constructor(parameters: DimensionValue) {
-    const name = parameters.name;
-    verifyUrlSafeName(name);
-    this.name = name;
-    this.title = parameters.title || makeTitle(name);
-    this.description = parameters.description;
-
-    const formula = parameters.formula || $(name).toString();
-    this.formula = formula;
-    this.expression = Expression.parse(formula);
-
-    const kind = parameters.kind || typeToKind(this.expression.type) || "string";
-    this.kind = kind;
-
-    if (kind === "string" && isGeo(name)) {
-      this.className = "string-geo";
-    } else {
-      this.className = kind;
-    }
-    if (parameters.url) {
-      if (typeof parameters.url !== "string") {
-        throw new Error(`unsupported url: ${parameters.url}: only strings are supported`);
-      }
-      this.url = parameters.url;
-    }
-
-    const granularities = parameters.granularities;
-    if (granularities) {
-      if (!Array.isArray(granularities) || granularities.length !== 5) {
-        throw new Error(`must have list of 5 granularities in dimension '${parameters.name}'`);
-      }
-      const sameType = granularities.every(g => typeof g === typeof granularities[0]);
-      if (!sameType) throw new Error("granularities must have the same type of actions");
-      this.granularities = granularities;
-    }
-    if (parameters.bucketedBy) this.bucketedBy = parameters.bucketedBy;
-    if (parameters.bucketingStrategy) this.bucketingStrategy = parameters.bucketingStrategy;
-    if (parameters.sortStrategy) this.sortStrategy = parameters.sortStrategy;
+  // TODO: check if need to memoize for perf
+  public get expression(): Expression {
+    return Expression.parse(this.formula);
   }
 
+  constructor(parameters: DimensionValue) {
+    super(initializeParameters(parameters));
+  }
+
+  toJS(): any {
+    const js = super.toJS();
+    return Object.keys(js).reduce((acc, key) => {
+      // @ts-ignore
+      const val = js[key];
+      return isTruthy(val) ? { ...acc, [key]: val } : acc;
+    }, {});
+  }
+
+  /**
+   * @deprecated
+   */
   accept<R>(visitor: DimensionOrGroupVisitor<R>): R {
     return visitor.visitDimension(this);
   }
 
-  public valueOf(): DimensionValue {
-    return {
-      name: this.name,
-      title: this.title,
-      formula: this.formula,
-      description: this.description,
-      kind: this.kind,
-      url: this.url,
-      granularities: this.granularities,
-      bucketedBy: this.bucketedBy,
-      bucketingStrategy: this.bucketingStrategy,
-      sortStrategy: this.sortStrategy
-    };
-  }
-
-  public toJS(): DimensionJS {
-    var js: DimensionJS = {
-      name: this.name,
-      title: this.title,
-      formula: this.formula,
-      kind: this.kind
-    };
-    if (this.description) js.description = this.description;
-    if (this.url) js.url = this.url;
-    if (this.granularities) js.granularities = this.granularities.map(g => granularityToJS(g));
-    if (this.bucketedBy) js.bucketedBy = granularityToJS(this.bucketedBy);
-    if (this.bucketingStrategy) js.bucketingStrategy = this.bucketingStrategy;
-    if (this.sortStrategy) js.sortStrategy = this.sortStrategy;
-    return js;
-  }
-
-  public toJSON(): DimensionJS {
-    return this.toJS();
-  }
-
   public toString(): string {
     return `[Dimension: ${this.name}]`;
-  }
-
-  public equals(other: any): boolean {
-    return Dimension.isDimension(other) &&
-      this.name === other.name &&
-      this.title === other.title &&
-      this.description === other.description &&
-      this.formula === other.formula &&
-      this.kind === other.kind &&
-      this.url === other.url &&
-      this.granularitiesEqual(other.granularities) &&
-      granularityEquals(this.bucketedBy, other.bucketedBy) &&
-      this.bucketingStrategy === other.bucketingStrategy &&
-      this.sortStrategy === other.sortStrategy;
-  }
-
-  private granularitiesEqual(otherGranularities: Bucket[]): boolean {
-    if (!otherGranularities) return !this.granularities;
-    if (otherGranularities.length !== this.granularities.length) return false;
-    return this.granularities.every((g, idx) => granularityEquals(g, otherGranularities[idx]));
   }
 
   public canBucketByDefault(): boolean {
@@ -230,33 +171,19 @@ export class Dimension implements Instance<DimensionValue, DimensionJS> {
     return kind === "time" || kind === "number";
   }
 
-  change(propertyName: string, newValue: any): Dimension {
-    var v = this.valueOf();
-
-    if (!v.hasOwnProperty(propertyName)) {
-      throw new Error(`Unknown property : ${propertyName}`);
-    }
-
-    (v as any)[propertyName] = newValue;
-    return new Dimension(v);
-  }
-
   changeKind(newKind: string): Dimension {
-    return this.change("kind", newKind);
+    return this.set("kind", newKind);
   }
 
   changeName(newName: string): Dimension {
-    return this.change("name", newName);
+    return this.set("name", newName);
   }
 
   changeTitle(newTitle: string): Dimension {
-    return this.change("title", newTitle);
+    return this.set("title", newTitle);
   }
 
   public changeFormula(newFormula: string): Dimension {
-    return this.change("formula", newFormula);
+    return this.set("formula", newFormula);
   }
-
 }
-
-check = Dimension;

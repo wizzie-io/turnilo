@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-import { Duration } from "chronoshift";
 import { SortDirection } from "../../view-definitions/version-4/split-definition";
+import { NumberBucket, TimeBucket } from "../granularity/bucket";
 import { Sort } from "../sort/sort";
 import { Split, SplitType } from "./split";
 
@@ -34,7 +34,7 @@ export class SplitFixtures {
     return new Split({
       type: SplitType.number,
       reference: dimension,
-      bucket: granularity,
+      bucket: NumberBucket.fromNumber(granularity),
       sort: new Sort({ reference: sortOn, direction }),
       limit
     });
@@ -44,7 +44,7 @@ export class SplitFixtures {
     return new Split({
       type: SplitType.time,
       reference: dimension,
-      bucket: Duration.fromJS(granularity),
+      bucket: TimeBucket.fromJS(granularity),
       sort: new Sort({ reference: sortOn, direction }),
       limit
     });

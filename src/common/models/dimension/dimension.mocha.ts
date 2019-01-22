@@ -16,13 +16,35 @@
  */
 
 import { expect } from "chai";
-import { testImmutableClass } from "immutable-class-tester";
 
 import { BucketingStrategy, Dimension, DimensionJS } from "./dimension";
+import { DimensionFixtures } from "./dimension.fixtures";
 
 describe("Dimension", () => {
-  it("is an immutable class", () => {
-    testImmutableClass<DimensionJS>(Dimension, [
+
+  describe("serialization", () => {
+    describe("should serialize/deserialize simple dimensions", () => {
+
+      const dimensions = [
+        DimensionFixtures.wikiTime(),
+        DimensionFixtures.wikiCommentLength(),
+        DimensionFixtures.countryURL(),
+        DimensionFixtures.number(),
+        DimensionFixtures.countryString()
+      ];
+
+      dimensions.forEach(dimension => {
+        it(`should serialize/deserialize dimension: ${dimension.name}`, () => {
+          const serialized = dimension.toJS();
+          const deserialized = Dimension.fromJS(serialized);
+          expect(deserialized.equals(dimension)).to.be.true;
+        });
+      });
+    });
+  });
+
+  describe("create valid record", () => {
+    const definitions = [
       {
         name: "country",
         title: "important countries",
@@ -31,33 +53,47 @@ describe("Dimension", () => {
         granularities: [5, 50, 500, 800, 1000],
         sortStrategy: "self"
       },
-      {
-        name: "country",
-        title: "important countries",
-        formula: "$country",
-        kind: "string",
-        url: "https://www.country.com/%s",
-        bucketedBy: 1,
-        bucketingStrategy: BucketingStrategy.defaultBucket
-      },
-      {
-        name: "time",
-        title: "time",
-        formula: "$time",
-        kind: "time",
-        url: "http://www.time.com/%s",
-        granularities: ["PT1M" , "P6M", "PT6H" , "P1D" , "P1W"]
-      },
-      {
-        name: "time",
-        title: "time",
-        formula: "$time",
-        kind: "time",
-        url: "http://www.time.com/%s",
-        granularities: ["PT1M" , "P6M", "PT6H" , "P1D" , "P1W"],
-        bucketedBy: "PT6H"
-      }
-    ]);
+      // {
+      //   name: "country",
+      //   title: "important countries",
+      //   formula: "$country",
+      //   kind: "string",
+      //   url: "https://www.country.com/%s",
+      //   bucketedBy: 1,
+      //   bucketingStrategy: BucketingStrategy.defaultBucket
+      // },
+      // {
+      //   name: "time",
+      //   title: "time",
+      //   formula: "$time",
+      //   kind: "time",
+      //   url: "http://www.time.com/%s",
+      //   granularities: ["PT1M", "P6M", "PT6H", "P1D", "P1W"]
+      // },
+      // {
+      //   name: "time",
+      //   title: "time",
+      //   formula: "$time",
+      //   kind: "time",
+      //   url: "http://www.time.com/%s",
+      //   granularities: ["PT1M", "P6M", "PT6H", "P1D", "P1W"],
+      //   bucketedBy: "PT6H"
+      // }
+    ];
+
+    definitions.forEach(def => {
+      describe(`from definition ${def.name}`, () => {
+        it("should read definition", () => {
+          expect(Dimension.fromJS(def)).to.be.instanceOf(Dimension);
+        });
+
+        it("should be equal to it's copy", () => {
+          const inst = Dimension.fromJS(def);
+          const inst2 = Dimension.fromJS(JSON.parse(JSON.stringify(def)));
+          expect(inst.granularities.equals(inst2.granularities)).to.be.true;
+        });
+      });
+    });
   });
 
   describe("back compat", () => {
@@ -67,12 +103,12 @@ describe("Dimension", () => {
         title: "important countries",
         expression: "$country",
         kind: "string"
-      } as any).toJS()).to.deep.equal({
+      } as any)).to.deep.equal(Dimension.fromJS({
         name: "country",
         title: "important countries",
         formula: "$country",
         kind: "string"
-      });
+      }));
     });
     /* TODO: check the correctness of the test */
     /*    it('neverBucket -> default no bucket', () => {
@@ -118,7 +154,9 @@ describe("Dimension", () => {
         granularities: [5, 50, "P1W", 800, 1000]
       };
 
-      expect(() => { Dimension.fromJS(dimJS); }).to.throw("granularities must have the same type of actions");
+      expect(() => {
+        Dimension.fromJS(dimJS);
+      }).to.throw("granularities must have the same type of actions");
 
       var dimJS2 = {
         name: "bad type",
@@ -127,7 +165,9 @@ describe("Dimension", () => {
         granularities: [false, true, true, false, false]
       };
 
-      expect(() => { Dimension.fromJS(dimJS2 as any); }).to.throw("input should be number or Duration");
+      expect(() => {
+        Dimension.fromJS(dimJS2 as any);
+      }).to.throw("input should be number or Duration");
 
     });
 

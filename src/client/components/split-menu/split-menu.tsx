@@ -21,9 +21,10 @@ import { Clicker } from "../../../common/models/clicker/clicker";
 import { Colors } from "../../../common/models/colors/colors";
 import { Dimension } from "../../../common/models/dimension/dimension";
 import { Essence, VisStrategy } from "../../../common/models/essence/essence";
-import { granularityToString, isGranularityValid } from "../../../common/models/granularity/granularity";
+import { Bucket, NumberBucket, TimeBucket } from "../../../common/models/granularity/bucket";
+import { isGranularityValid } from "../../../common/models/granularity/granularity";
 import { Sort } from "../../../common/models/sort/sort";
-import { Bucket, Split } from "../../../common/models/split/split";
+import { Split } from "../../../common/models/split/split";
 import { Stage } from "../../../common/models/stage/stage";
 import { Fn } from "../../../common/utils/general/general";
 import { STRINGS } from "../../config/constants";
@@ -70,7 +71,7 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
       reference,
       sort,
       limit,
-      granularity: bucket && granularityToString(bucket),
+      granularity: bucket && bucket.toString(),
       colors: colorsDimensionMatch ? colors : null
     });
   }
@@ -105,10 +106,10 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
     const { dimension: { kind } } = this.props;
     const { granularity } = this.state;
     if (kind === "time") {
-      return Duration.fromJS(granularity);
+      return TimeBucket.fromDuration(Duration.fromJS(granularity));
     }
     if (kind === "number") {
-      return parseInt(granularity, 10);
+      return NumberBucket.fromNumber(parseInt(granularity, 10));
     }
     return null;
   }
@@ -159,7 +160,7 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
         colors={colors}
         onLimitSelect={this.saveLimit}
         limit={limit}
-        includeNone={dimension.isContinuous()}/>
+        includeNone={dimension.isContinuous()} />
       <div className="button-bar">
         <Button className="ok" type="primary" disabled={!this.validate()} onClick={this.onOkClick} title={STRINGS.ok} />
         <Button type="secondary" onClick={this.onCancelClick} title={STRINGS.cancel} />
