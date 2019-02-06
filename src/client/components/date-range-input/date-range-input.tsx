@@ -16,9 +16,8 @@
  */
 
 import { Timezone } from "chronoshift";
-import "moment-timezone";
 import * as React from "react";
-import { combineDateAndTimeIntoMoment, formatDate, formatTime, maybeFullyDefinedDate, maybeFullyDefinedTime } from "../../../common/utils/time/time";
+import { combineDateAndTimeIntoMoment, formatISODate, formatISOTime } from "../../../common/utils/time/time";
 import "./date-range-input.scss";
 
 export interface DateRangeInputProps {
@@ -34,6 +33,11 @@ export interface DateRangeInputState {
   dateString?: string;
   timeString?: string;
 }
+
+const TIME_FORMAT = /\d\d:\d\d/;
+const TIME_REMINDER = /[^\d:]/g;
+const DATE_FORMAT = /\d\d\d\d-\d\d-\d\d/;
+const DATE_REMINDER = /[^\d-]/g;
 
 export class DateRangeInput extends React.Component<DateRangeInputProps, DateRangeInputState> {
   state = {
@@ -61,27 +65,29 @@ export class DateRangeInput extends React.Component<DateRangeInputProps, DateRan
     }
 
     this.setState({
-      dateString: formatDate(time, timezone),
-      timeString: formatTime(time, timezone)
+      dateString: formatISODate(time, timezone),
+      timeString: formatISOTime(time, timezone)
     });
   }
 
   dateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const dateString = e.target.value.replace(/[^\d-]/g, "");
+    const value = e.target.value;
+    const dateString = value.replace(DATE_REMINDER, "");
     this.setState({
       dateString
     });
-    if (maybeFullyDefinedDate(dateString)) {
+    if (DATE_FORMAT.test(dateString)) {
       this.changeDate(dateString, this.state.timeString);
     }
   }
 
   timeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const timeString = e.target.value.replace(/[^\d:]/g, "");
+    const value = e.target.value;
+    const timeString = value.replace(TIME_REMINDER, "");
     this.setState({
       timeString
     });
-    if (maybeFullyDefinedTime(timeString)) {
+    if (TIME_FORMAT.test(timeString)) {
       this.changeDate(this.state.dateString, timeString);
     }
   }
