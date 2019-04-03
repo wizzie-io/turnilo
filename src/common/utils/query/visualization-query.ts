@@ -67,6 +67,7 @@ function applySort(essence: Essence, sort: Sort, currentFilter: Expression, nest
   //   * selected measures - they're defined as apply expressions already
   //   * previous - we need to define them earlier so they're present here
   return (query: Expression) => {
+    console.log(sort.toJS());
     const queryWithReference = applySortReferenceExpression(essence, query, nestingLevel, currentFilter, sort);
     return queryWithReference.performAction(new SortExpression({
       expression: $(sort.reference),
